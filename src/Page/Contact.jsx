@@ -33,8 +33,12 @@ const Contact = () => {
       setAutoReplyStatus(response.autoReplySent);
       setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
     } catch (error) {
-      setSubmitMessage('Failed to send message. Please try again.');
       console.error('Contact form error:', error);
+      if (error.message.includes('404') || error.message.includes('NOT_FOUND')) {
+        setSubmitMessage('Contact service is temporarily unavailable. Please call us directly at +91 98765 43210 or email info@anvishowroom.com');
+      } else {
+        setSubmitMessage('Failed to send message. Please try again or contact us directly.');
+      }
     } finally {
       setIsSubmitting(false);
     }
