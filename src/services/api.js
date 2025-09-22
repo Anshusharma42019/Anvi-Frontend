@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3003/api';
+const API_BASE_URL = 'https://anvi-backend-v77n.vercel.app/api';
 
 class ApiService {
   async request(endpoint, options = {}) {
