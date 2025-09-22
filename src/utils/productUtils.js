@@ -8,7 +8,6 @@ export const filterProducts = (products, filters) => {
     });
   });
 };
-
 export const calculateDiscount = (originalPrice, discountPercent) => {
   const discount = (originalPrice * discountPercent) / 100;
   return {
