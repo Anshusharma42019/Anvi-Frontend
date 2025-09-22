@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     outDir: 'dist',
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
