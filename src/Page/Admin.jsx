@@ -118,6 +118,13 @@ const Admin = () => {
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!productForm.image || productForm.image.trim() === '') {
+      showToast('Please provide an image URL or upload an image', 'error');
+      return;
+    }
+    
     try {
       const productData = {
         name: productForm.name,
@@ -483,10 +490,11 @@ const Admin = () => {
                       <div className="col-span-2 space-y-2">
                         <input
                           type="text"
-                          placeholder="Image URL"
+                          placeholder="Image URL (required)"
                           value={productForm.image}
                           onChange={(e) => setProductForm({...productForm, image: e.target.value})}
                           className="border rounded px-3 py-2 w-full"
+                          required
                         />
                         <div className="text-center text-gray-500 text-sm">OR</div>
                         <input
@@ -629,6 +637,13 @@ const Admin = () => {
                     <h3 className="text-lg font-semibold mb-4">Add New Category</h3>
                     <form onSubmit={async (e) => {
                       e.preventDefault();
+                      
+                      // Validate required fields
+                      if (!catalogueForm.category || !catalogueForm.catalogueNumber || !catalogueForm.imageUrl) {
+                        showToast('Category, catalogue number, and image URL are required', 'error');
+                        return;
+                      }
+                      
                       try {
                         await apiService.createCatalogueCategory(catalogueForm.category, catalogueForm.catalogueNumber, catalogueForm.imageUrl, catalogueForm.description);
                         const cataloguesData = await apiService.getCatalogueImages();
@@ -659,10 +674,11 @@ const Admin = () => {
                       <div className="space-y-2">
                         <input
                           type="text"
-                          placeholder="Image URL"
+                          placeholder="Image URL (required)"
                           value={catalogueForm.imageUrl}
                           onChange={(e) => setCatalogueForm({...catalogueForm, imageUrl: e.target.value})}
                           className="border rounded px-3 py-2 w-full"
+                          required
                         />
                         <div className="text-center text-gray-500">OR</div>
                         <input
