@@ -1,4 +1,4 @@
-// Product utility functions for Anvi Showroom
+// Product utility  for Anvi Showroom
 
 export const filterProducts = (products, filters) => {
   return products.filter(product => {
