@@ -7,11 +7,6 @@ const Home = () => {
   const [isVisible, setIsVisible] = useState(false);
   
   const backgrounds = [
-    'https://images.unsplash.com/photo-1587202372775-98926b42a6a2',
-    'https://images.unsplash.com/photo-1596079890748-5b0f45a0fbe6',
-    'https://images.unsplash.com/photo-1616627455412-1b8f8a2dced3',
-    'https://images.unsplash.com/photo-1556910103-1b3f5af5b8f9',
-    'https://images.unsplash.com/photo-1626784372680-55ce49963cf0',
     'https://images.unsplash.com/photo-1615971677499-5467cbab01c0'
   ];
 

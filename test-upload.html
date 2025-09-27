@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .upload-area { border: 2px dashed #ccc; padding: 20px; margin: 20px 0; text-align: center; }
+        .result { margin: 20px 0; padding: 10px; background: #f5f5f5; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <h1>Cloudinary Upload Test</h1>
+    
+    <div class="upload-area">
+        <input type="file" id="fileInput" accept="image/*">
+        <button onclick="testUpload()">Upload Image</button>
+    </div>
+    
+    <div id="result" class="result" style="display: none;"></div>
+    
+    <script>
+        const API_URL = 'https://anvi-backend-theta.vercel.app/api';
+        
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                showResult('Please select a file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]);
+            
+            try {
+                showResult('Uploading...', '');
+                
+                const response = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ Upload successful!<br>URL: <a href="${data.imageUrl}" target="_blank">${data.imageUrl}</a>`, 'success');
+                } else {
+                    showResult(`❌ Upload failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = message;
+            resultDiv.className = `result ${type}`;
+            resultDiv.style.display = 'block';
+        }
+        
+        // Test API connection
+        async function testConnection() {
+            try {
+                const response = await fetch(`${API_URL}/upload/test`);
+                const data = await response.json();
+                console.log('API connection test:', data);
+            } catch (error) {
+                console.error('API connection failed:', error);
+            }
+        }
+        
+        testConnection();
+    </script>
+</body>
+</html>

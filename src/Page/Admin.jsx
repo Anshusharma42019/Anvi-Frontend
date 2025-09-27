@@ -119,9 +119,8 @@ const Admin = () => {
   const handleProductSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
-    if (!productForm.image || productForm.image.trim() === '') {
-      showToast('Please provide an image URL or upload an image', 'error');
+    if (uploading) {
+      showToast('Please wait for image upload to complete', 'error');
       return;
     }
     
@@ -192,6 +191,7 @@ const Admin = () => {
   const [messageStatus, setMessageStatus] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyMessage, setReplyMessage] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -490,11 +490,10 @@ const Admin = () => {
                       <div className="col-span-2 space-y-2">
                         <input
                           type="text"
-                          placeholder="Image URL (required)"
+                          placeholder="Image URL (optional)"
                           value={productForm.image}
                           onChange={(e) => setProductForm({...productForm, image: e.target.value})}
                           className="border rounded px-3 py-2 w-full"
-                          required
                         />
                         <div className="text-center text-gray-500 text-sm">OR</div>
                         <input
@@ -502,23 +501,73 @@ const Admin = () => {
                           accept="image/*"
                           onChange={async (e) => {
                             const file = e.target.files[0];
-                            if (file) {
+                            if (file && !uploading) {
+                              setUploading(true);
+                              showToast('🔄 Uploading image...', 'info');
                               try {
                                 const result = await apiService.uploadImage(file);
-                                setProductForm({...productForm, image: result.imageUrl});
+                                console.log('Upload result:', result);
+                                if (result && result.imageUrl) {
+                                  setProductForm(prev => ({...prev, image: result.imageUrl}));
+                                  showToast('✅ Image uploaded successfully!', 'success');
+                                } else {
+                                  throw new Error('No imageUrl in response');
+                                }
                               } catch (error) {
-                                alert('Upload failed: ' + error.message);
+                                console.error('Upload error:', error);
+                                showToast('❌ Upload failed: ' + error.message, 'error');
+                              } finally {
+                                setUploading(false);
+                                e.target.value = '';
                               }
                             }
                           }}
                           className="border rounded px-3 py-2 w-full"
                         />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={async (e) => {
+                            const files = e.target.files;
+                            if (files.length > 0 && !uploading) {
+                              setUploading(true);
+                              showToast(`🔄 Uploading ${files.length} images...`, 'info');
+                              try {
+                                const result = await apiService.uploadMultipleImages(files);
+                                console.log('Multiple upload result:', result);
+                                if (result && result.images && result.images.length > 0) {
+                                  const firstImageUrl = result.images[0].imageUrl;
+                                  setProductForm(prev => ({...prev, image: firstImageUrl}));
+                                  showToast(`✅ ${result.images.length} images uploaded! Using first as main image.`, 'success');
+                                } else {
+                                  throw new Error('No images in response');
+                                }
+                              } catch (error) {
+                                console.error('Multiple upload error:', error);
+                                showToast('❌ Multiple upload failed: ' + error.message, 'error');
+                              } finally {
+                                setUploading(false);
+                                e.target.value = '';
+                              }
+                            }
+                          }}
+                          className="border rounded px-3 py-2 w-full"
+                          placeholder="Upload multiple images"
+                        />
                         {productForm.image && (
-                          <img 
-                            src={productForm.image} 
-                            alt="Preview" 
-                            className="w-20 h-20 object-cover rounded border"
-                          />
+                          <div className="mt-2">
+                            <p className="text-sm text-gray-600 mb-1">Preview:</p>
+                            <img 
+                              src={productForm.image} 
+                              alt="Preview" 
+                              className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                console.error('Image failed to load:', productForm.image);
+                              }}
+                            />
+                          </div>
                         )}
                       </div>
                       <textarea
@@ -530,8 +579,16 @@ const Admin = () => {
                         required
                       />
                       <div className="col-span-2 flex gap-2">
-                        <button type="submit" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold">
-                          {editingProduct ? '✨ Update' : '✨ Create'} Product
+                        <button 
+                          type="submit" 
+                          disabled={uploading}
+                          className={`px-6 py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold ${
+                            uploading 
+                              ? 'bg-gray-400 cursor-not-allowed text-white' 
+                              : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                          }`}
+                        >
+                          {uploading ? '⏳ Uploading...' : editingProduct ? '✨ Update' : '✨ Create'} Product
                         </button>
                         <button
                           type="button"
@@ -553,7 +610,13 @@ const Admin = () => {
                   {products.map((product) => (
                     <div key={product._id} className="group bg-white rounded-xl lg:rounded-2xl p-4 sm:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-gray-100">
                       <div className="relative overflow-hidden rounded-lg lg:rounded-xl mb-3 sm:mb-4">
-                        <img src={product.image} alt={product.name} className="w-full h-32 sm:h-40 object-cover group-hover:scale-110 transition-transform duration-300" />
+                        {product.image ? (
+                          <img src={product.image} alt={product.name} className="w-full h-32 sm:h-40 object-cover group-hover:scale-110 transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-32 sm:h-40 bg-gray-200 flex items-center justify-center text-gray-500">
+                            No Image
+                          </div>
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       </div>
                       <h3 className="font-bold text-base sm:text-lg text-gray-800 mb-1">{product.name}</h3>
@@ -639,8 +702,8 @@ const Admin = () => {
                       e.preventDefault();
                       
                       // Validate required fields
-                      if (!catalogueForm.category || !catalogueForm.catalogueNumber || !catalogueForm.imageUrl) {
-                        showToast('Category, catalogue number, and image URL are required', 'error');
+                      if (!catalogueForm.category || !catalogueForm.catalogueNumber) {
+                        showToast('Category and catalogue number are required', 'error');
                         return;
                       }
                       
@@ -674,11 +737,10 @@ const Admin = () => {
                       <div className="space-y-2">
                         <input
                           type="text"
-                          placeholder="Image URL (required)"
+                          placeholder="Image URL (optional)"
                           value={catalogueForm.imageUrl}
                           onChange={(e) => setCatalogueForm({...catalogueForm, imageUrl: e.target.value})}
                           className="border rounded px-3 py-2 w-full"
-                          required
                         />
                         <div className="text-center text-gray-500">OR</div>
                         <input
@@ -686,12 +748,22 @@ const Admin = () => {
                           accept="image/*"
                           onChange={async (e) => {
                             const file = e.target.files[0];
-                            if (file) {
+                            if (file && !uploading) {
+                              setUploading(true);
+                              showToast('🔄 Uploading image...', 'info');
                               try {
                                 const result = await apiService.uploadImage(file);
-                                setCatalogueForm({...catalogueForm, imageUrl: result.imageUrl});
+                                if (result && result.imageUrl) {
+                                  setCatalogueForm(prev => ({...prev, imageUrl: result.imageUrl}));
+                                  showToast('✅ Image uploaded successfully!', 'success');
+                                } else {
+                                  throw new Error('Invalid response from server');
+                                }
                               } catch (error) {
-                                alert('Upload failed: ' + error.message);
+                                console.error('Upload error:', error);
+                                showToast('❌ Upload failed: ' + error.message, 'error');
+                              } finally {
+                                setUploading(false);
                               }
                             }
                           }}
@@ -762,11 +834,17 @@ const Admin = () => {
                           {deletingProduct === `delete-${category}` ? '⚠️ Sure?' : '🗑️ Delete'}
                         </button>
                       </div>
-                      <img 
-                        src={catalogueData.imageUrl} 
-                        alt={category}
-                        className="w-full h-32 object-cover rounded mb-3"
-                      />
+                      {catalogueData.imageUrl ? (
+                        <img 
+                          src={catalogueData.imageUrl} 
+                          alt={category}
+                          className="w-full h-32 object-cover rounded mb-3"
+                        />
+                      ) : (
+                        <div className="w-full h-32 bg-gray-200 flex items-center justify-center text-gray-500 rounded mb-3">
+                          No Image
+                        </div>
+                      )}
                       <div className="space-y-2">
                         <input
                           type="text"
@@ -807,14 +885,24 @@ const Admin = () => {
                           accept="image/*"
                           onChange={async (e) => {
                             const file = e.target.files[0];
-                            if (file) {
+                            if (file && !uploading) {
+                              setUploading(true);
+                              showToast('🔄 Uploading image...', 'info');
                               try {
                                 const result = await apiService.uploadImage(file);
-                                await apiService.updateCatalogueImage(category, catalogueData.catalogueNumber, result.imageUrl, catalogueData.description);
-                                const cataloguesData = await apiService.getCatalogueImages();
-                                setCatalogueImages(cataloguesData);
+                                if (result && result.imageUrl) {
+                                  await apiService.updateCatalogueImage(category, catalogueData.catalogueNumber, result.imageUrl, catalogueData.description);
+                                  const cataloguesData = await apiService.getCatalogueImages();
+                                  setCatalogueImages(cataloguesData);
+                                  showToast('✅ Image uploaded and updated successfully!', 'success');
+                                } else {
+                                  throw new Error('Invalid response from server');
+                                }
                               } catch (error) {
-                                alert('Upload failed: ' + error.message);
+                                console.error('Upload error:', error);
+                                showToast('❌ Upload failed: ' + error.message, 'error');
+                              } finally {
+                                setUploading(false);
                               }
                             }
                           }}
