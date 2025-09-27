@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://anvi-backend-theta.vercel.app/api';
+const API_BASE_URL = 'https://anvi-backend-ten.vercel.app/api';
 
 class ApiService {
   get baseURL() {
