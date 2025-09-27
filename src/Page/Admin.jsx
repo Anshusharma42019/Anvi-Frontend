@@ -524,37 +524,6 @@ const Admin = () => {
                           }}
                           className="border rounded px-3 py-2 w-full"
                         />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={async (e) => {
-                            const files = e.target.files;
-                            if (files.length > 0 && !uploading) {
-                              setUploading(true);
-                              showToast(`🔄 Uploading ${files.length} images...`, 'info');
-                              try {
-                                const result = await apiService.uploadMultipleImages(files);
-                                console.log('Multiple upload result:', result);
-                                if (result && result.images && result.images.length > 0) {
-                                  const firstImageUrl = result.images[0].imageUrl;
-                                  setProductForm(prev => ({...prev, image: firstImageUrl}));
-                                  showToast(`✅ ${result.images.length} images uploaded! Using first as main image.`, 'success');
-                                } else {
-                                  throw new Error('No images in response');
-                                }
-                              } catch (error) {
-                                console.error('Multiple upload error:', error);
-                                showToast('❌ Multiple upload failed: ' + error.message, 'error');
-                              } finally {
-                                setUploading(false);
-                                e.target.value = '';
-                              }
-                            }
-                          }}
-                          className="border rounded px-3 py-2 w-full"
-                          placeholder="Upload multiple images"
-                        />
                         {productForm.image && (
                           <div className="mt-2">
                             <p className="text-sm text-gray-600 mb-1">Preview:</p>
