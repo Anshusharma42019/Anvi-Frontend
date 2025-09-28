@@ -179,7 +179,7 @@ class ApiService {
     
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       try {
         console.log(`Upload attempt ${attempt + 1}/${retries + 1}`);

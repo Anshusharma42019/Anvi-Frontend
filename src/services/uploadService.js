@@ -41,9 +41,29 @@ class UploadService {
       console.log('Response status:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Upload failed with status:', response.status, 'Error:', errorText);
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || 'Upload failed';
+        } catch {
+          const errorText = await response.text();
+          errorMessage = errorText || 'Upload failed';
+        }
+        
+        console.error('Upload failed with status:', response.status, 'Error:', errorMessage);
+        
+        // Provide user-friendly error messages
+        if (response.status === 413) {
+          throw new Error('File too large - maximum size is 10MB');
+        } else if (response.status === 400) {
+          throw new Error(errorMessage.includes('file') ? errorMessage : 'Invalid file - only images are allowed');
+        } else if (response.status === 408) {
+          throw new Error('Upload timeout - please try again');
+        } else if (response.status >= 500) {
+          throw new Error('Server error - please try again later');
+        } else {
+          throw new Error(errorMessage);
+        }
       }
 
       const result = await response.json();

@@ -6,12 +6,47 @@ import Toast from '../Componemts/Toast';
 import MessageStatus from '../Componemts/MessageStatus';
 
 const Admin = () => {
+  // Lightweight sanitization only on submit
+  const sanitizeInput = (str) => {
+    if (typeof str !== 'string') return str;
+    return str.replace(/&amp;#39;/g, "'").replace(/&amp;quot;/g, '"').trim();
+  };
+
+  // Debounced form update
+  const updateForm = (field, value, formType = 'product') => {
+    if (formType === 'product') {
+      setProductForm(prev => ({ ...prev, [field]: value }));
+    } else {
+      setCatalogueForm(prev => ({ ...prev, [field]: value }));
+    }
+  };
+
+  // Debounced upload handler
+  const handleImageUpload = async (file, fieldName) => {
+    if (!file) return;
+    
+    setUploading(true);
+    try {
+      const result = await apiService.uploadImage(file, 1); // Only 1 retry
+      if (fieldName === 'product') {
+        setProductForm(prev => ({ ...prev, image: result.url }));
+      } else if (fieldName === 'catalogue') {
+        setCatalogueForm(prev => ({ ...prev, imageUrl: result.url }));
+      }
+      showToast('Image uploaded successfully!', 'success');
+    } catch (error) {
+      console.error('Upload error:', error);
+      showToast('Upload failed. Please try again.', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
   const [stats, setStats] = useState({});
   const [contacts, setContacts] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [products, setProducts] = useState([]);
   const [catalogueImages, setCatalogueImages] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showProductForm, setShowProductForm] = useState(false);
   const [showCatalogueForm, setShowCatalogueForm] = useState(false);
@@ -36,50 +71,34 @@ const Admin = () => {
   }, []);
 
   const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      // Load products first (this should work)
-      const productsData = await apiService.getProducts({ limit: 20 });
-      setProducts(productsData.products || []);
-      
-      // Try to load other data, but don't fail if they don't work
-      try {
-        const dashboardStats = await apiService.getDashboardStats();
-        setStats(dashboardStats.stats || {});
-      } catch (err) {
-        console.log('Dashboard stats not available:', err);
-        setStats({ totalProducts: productsData.products?.length || 0 });
+    // Load data progressively without blocking UI
+    Promise.allSettled([
+      apiService.getProducts({ limit: 20 }),
+      apiService.getDashboardStats(),
+      apiService.getAllContacts({ limit: 10 }),
+      apiService.getAllReviews({ limit: 10 }),
+      apiService.getCatalogueImages()
+    ]).then(([productsResult, statsResult, contactsResult, reviewsResult, catalogueResult]) => {
+      if (productsResult.status === 'fulfilled') {
+        setProducts(productsResult.value.products || []);
       }
-      
-
-      
-      try {
-        const contactsData = await apiService.getAllContacts({ limit: 10 });
-        setContacts(contactsData.contacts || []);
-      } catch (err) {
-        console.log('Contacts not available:', err);
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value.stats || {});
+      } else {
+        setStats({ totalProducts: productsResult.status === 'fulfilled' ? productsResult.value.products?.length || 0 : 0 });
       }
-      
-      try {
-        const reviewsData = await apiService.getAllReviews({ limit: 10 });
-        setReviews(reviewsData.reviews || []);
-      } catch (err) {
-        console.log('Reviews not available:', err);
+      if (contactsResult.status === 'fulfilled') {
+        setContacts(contactsResult.value.contacts || []);
       }
-      
-      try {
-        const catalogueImagesData = await apiService.getCatalogueImages();
-        setCatalogueImages(catalogueImagesData || {});
-      } catch (err) {
-        console.log('Catalogue images not available:', err);
+      if (reviewsResult.status === 'fulfilled') {
+        setReviews(reviewsResult.value.reviews || []);
       }
-      
-    } catch (error) {
+      if (catalogueResult.status === 'fulfilled') {
+        setCatalogueImages(catalogueResult.value || {});
+      }
+    }).catch(error => {
       console.error('Error loading dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
 
@@ -126,15 +145,15 @@ const Admin = () => {
     
     try {
       const productData = {
-        name: productForm.name,
-        description: productForm.description,
-        category: productForm.category,
+        name: sanitizeInput(productForm.name),
+        description: sanitizeInput(productForm.description),
+        category: sanitizeInput(productForm.category),
         price: 0,
-        image: productForm.image,
-        size: productForm.size || '30x30 cm',
-        thickness: productForm.thickness || '8mm',
-        finish: productForm.finish || 'Polished',
-        features: Array.isArray(productForm.features) ? productForm.features : [],
+        image: sanitizeInput(productForm.image),
+        size: sanitizeInput(productForm.size) || '30x30 cm',
+        thickness: sanitizeInput(productForm.thickness) || '8mm',
+        finish: sanitizeInput(productForm.finish) || 'Polished',
+        features: Array.isArray(productForm.features) ? productForm.features.map(f => sanitizeInput(f)) : [],
         rating: parseFloat(productForm.rating) || 4.0,
         reviews: parseInt(productForm.reviews) || 0
       };
@@ -192,9 +211,10 @@ const Admin = () => {
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadTimeout, setUploadTimeout] = useState(null);
 
   const showToast = (message, type = 'success') => {
-    setToast({ message, type });
+    setToast({ message: sanitizeInput(message), type });
   };
 
   const handleDeleteProduct = async (productId) => {
@@ -214,16 +234,45 @@ const Admin = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="pt-20 min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading admin dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleCategorySubmit = async (categoryData) => {
+    try {
+      const sanitizedData = {
+        name: sanitizeInput(categoryData.name),
+        description: sanitizeInput(categoryData.description),
+        image: sanitizeInput(categoryData.image)
+      };
+      
+      await apiService.createCategory(sanitizedData);
+      showToast('Category created successfully!', 'success');
+      loadDashboardData();
+    } catch (error) {
+      console.error('Error creating category:', error);
+      showToast('Error creating category: ' + error.message, 'error');
+    }
+  };
+
+  const handleCatalogueSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const sanitizedData = {
+        category: sanitizeInput(catalogueForm.category),
+        catalogueNumber: sanitizeInput(catalogueForm.catalogueNumber),
+        imageUrl: sanitizeInput(catalogueForm.imageUrl),
+        description: sanitizeInput(catalogueForm.description)
+      };
+      
+      await apiService.createCatalogueCategory(sanitizedData);
+      showToast('Catalogue category created successfully!', 'success');
+      setCatalogueForm({ category: '', catalogueNumber: '', imageUrl: '', description: '' });
+      setShowCatalogueForm(false);
+      loadDashboardData();
+    } catch (error) {
+      console.error('Error creating catalogue category:', error);
+      showToast('Error creating catalogue category: ' + error.message, 'error');
+    }
+  };
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex relative overflow-hidden">

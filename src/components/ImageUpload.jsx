@@ -35,9 +35,15 @@ const ImageUpload = ({
 
       onUploadSuccess?.(result);
     } catch (error) {
-      onUploadError?.(error.message);
+      console.error('Upload error:', error);
+      const errorMessage = error.message || 'Upload failed - please try again';
+      onUploadError?.(errorMessage);
     } finally {
       setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
